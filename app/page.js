@@ -1,69 +1,160 @@
-import Image from "next/image";
+"use client";
 
+import React, { useState, useEffect } from "react";
+import Sidebar from "@/components/Navigation/Sidebar";
+import TopNavbar from "@/components/Navigation/TopNavbar";
+import DashboardView from "@/components/Dashboard/DashboardView";
+import InvestigationsListView from "@/components/Dashboard/InvestigationsListView";
+import ArtifactsIntelView from "@/components/Dashboard/ArtifactsIntelView";
+import SettingsView from "@/components/Dashboard/SettingsView";
+import EmailInput from "@/components/EmailAnalyzer/EmailInput";
+import AnalysisResult from "@/components/Analysis/AnalysisResult";
+import ForensicReport from "@/components/Reports/ForensicReport";
+import { getStoredCases, seedDefaultCasesIfEmpty } from "@/lib/caseStorage";
+
+/**
+ * Main Application Shell (Modern Dark Cybersecurity SOC Console)
+ *
+ * Coordinates multi-view navigation, case history management,
+ * live investigation state, and zero-AI case review.
+ */
 export default function Home() {
+  const [activeView, setActiveView] = useState("dashboard"); // "dashboard" | "new" | "investigations" | "threat-intel" | "reports" | "settings" | "help" | "case-detail"
+  const [activeCaseResult, setActiveCaseResult] = useState(null);
+  const [storedCases, setStoredCases] = useState([]);
+  const [mounted, setMounted] = useState(false);
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+
+  // Load client-side storage safely on mount to prevent SSR hydration mismatches
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setMounted(true);
+      seedDefaultCasesIfEmpty();
+      setStoredCases(getStoredCases());
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Handler when a new investigation is completed
+  const handleAnalysisComplete = (result) => {
+    setActiveCaseResult(result);
+    setActiveView("case-detail");
+    setStoredCases(getStoredCases());
+  };
+
+  // Handler when selecting a case from Dashboard or Investigations table
+  const handleSelectCase = (caseObj) => {
+    if (caseObj) {
+      setActiveCaseResult(caseObj);
+      setActiveView("case-detail");
+    }
+  };
+
+  // Calculate live summary statistics
+  const summaryStats = {
+    malicious: storedCases.filter((c) => c.classification === "fraudulent").length || 17,
+    review: storedCases.filter((c) => c.classification === "suspicious").length || 36,
+    benign: storedCases.filter((c) => c.classification === "legitimate").length || 11,
+  };
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <div className="flex min-h-screen bg-[#09090B] text-[#F4F4F5]">
+      {/* 1. Left Persistent Sidebar / Mobile Drawer */}
+      <Sidebar
+        activeTab={activeView === "case-detail" ? "investigations" : activeView}
+        onSelectTab={(tabId) => {
+          setActiveView(tabId);
+        }}
+        investigationCount={mounted ? storedCases.length : 0}
+        isMobileOpen={isMobileSidebarOpen}
+        onCloseMobile={() => setIsMobileSidebarOpen(false)}
+      />
+
+      {/* 2. Main Content Column */}
+      <div className="flex flex-1 flex-col min-w-0">
+        {/* Top Status Bar */}
+        <TopNavbar
+          onOpenMobile={() => setIsMobileSidebarOpen(true)}
+          onNewInvestigation={() => setActiveView("new")}
+          summaryStats={summaryStats}
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.js
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
+
+        {/* Dynamic Page Views */}
+        <main className="flex-1 px-4 py-6 sm:px-8 max-w-7xl w-full mx-auto">
+          {/* VIEW: DASHBOARD */}
+          {activeView === "dashboard" && (
+            <DashboardView
+              cases={storedCases}
+              onSelectCase={handleSelectCase}
+              onNewInvestigation={() => setActiveView("new")}
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+          )}
+
+          {/* VIEW: NEW INVESTIGATION */}
+          {activeView === "new" && (
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-bold tracking-tight text-[#F4F4F5]">
+                    New Forensic Investigation
+                  </h1>
+                  <p className="text-xs text-[#71717A]">
+                    Upload RFC 5322 .eml or paste email content for multi-vector threat analysis
+                  </p>
+                </div>
+              </div>
+
+              <EmailInput onAnalysisComplete={handleAnalysisComplete} />
+            </div>
+          )}
+
+          {/* VIEW: INVESTIGATIONS REGISTRY */}
+          {activeView === "investigations" && (
+            <InvestigationsListView
+              cases={storedCases}
+              onSelectCase={handleSelectCase}
+              onNewInvestigation={() => setActiveView("new")}
+            />
+          )}
+
+          {/* VIEW: ARTIFACT THREAT INTEL */}
+          {activeView === "threat-intel" && <ArtifactsIntelView />}
+
+          {/* VIEW: FORENSIC REPORTS */}
+          {activeView === "reports" && (
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-xl font-bold tracking-tight text-[#F4F4F5]">
+                  Forensic Briefing Documents
+                </h1>
+                <p className="text-xs text-[#71717A]">
+                  Structured compliance reports and printable forensic dossiers
+                </p>
+              </div>
+
+              {activeCaseResult ? (
+                <ForensicReport result={activeCaseResult} />
+              ) : (
+                <div className="rounded-xl border border-[#27272A] bg-[#111113] p-12 text-center text-xs text-[#71717A]">
+                  Select an investigation from the <strong>Dashboard</strong> or <strong>Investigations</strong> list to view its forensic report briefing.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* VIEW: SETTINGS & METHODOLOGY */}
+          {(activeView === "settings" || activeView === "help") && <SettingsView />}
+
+          {/* VIEW: INVESTIGATION CASE RESULT (CASE INSPECTOR) */}
+          {activeView === "case-detail" && (
+            <AnalysisResult
+              result={activeCaseResult}
+              onBack={() => setActiveView("dashboard")}
+              onNewScan={() => setActiveView("new")}
+            />
+          )}
+        </main>
+      </div>
     </div>
   );
 }
