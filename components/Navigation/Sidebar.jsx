@@ -15,6 +15,7 @@ import {
   Radio,
   X,
 } from "lucide-react";
+import { useQuota } from "@/lib/quota";
 
 /**
  * Sidebar Component (Modern Dark Cybersecurity Console)
@@ -36,6 +37,8 @@ export default function Sidebar({
   isMobileOpen = false,
   onCloseMobile,
 }) {
+  const quota = useQuota();
+
   const mainNavItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "new", label: "New Investigation", icon: ScanSearch, highlight: true },
@@ -59,15 +62,12 @@ export default function Sidebar({
               <Zap className="h-4 w-4 fill-indigo-400" />
             </div>
             <div>
-              <div className="flex items-center gap-1.5 font-bold tracking-tight text-sm">
-                <span>SURGE</span>
-                <span className="text-[10px] uppercase font-semibold px-1.5 py-0.2 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  SOC
-                </span>
-              </div>
-              <p className="text-[10px] text-[#71717A] tracking-wide">
-                Email Forensics Engine
-              </p>
+              <span className="text-sm font-bold tracking-tight text-[#F4F4F5] block leading-tight">
+                PhishOps Core
+              </span>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-[#71717A] block">
+                SOC Forensics
+              </span>
             </div>
           </div>
 
@@ -76,23 +76,21 @@ export default function Sidebar({
             <button
               type="button"
               onClick={onCloseMobile}
-              className="lg:hidden rounded-lg p-1 text-[#A1A1AA] hover:bg-[#18181B] hover:text-[#F4F4F5]"
+              className="lg:hidden p-1 rounded-md text-[#71717A] hover:text-[#F4F4F5]"
             >
-              <X className="h-5 w-5" />
+              <X className="h-4 w-4" />
             </button>
           )}
         </div>
 
-        {/* Main Navigation Links */}
-        <nav className="space-y-1" aria-label="Main Navigation">
-          <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">
-            Investigation Suite
-          </div>
-
+        {/* Primary Views Navigation */}
+        <div className="space-y-1">
+          <p className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">
+            Investigation Engine
+          </p>
           {mainNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
-
             return (
               <button
                 key={item.id}
@@ -103,7 +101,9 @@ export default function Sidebar({
                 }}
                 className={`group flex w-full items-center justify-between rounded-lg px-3 py-2 text-xs font-medium transition-all ${
                   isActive
-                    ? "bg-[#18181B] text-white border border-[#27272A] shadow-xs"
+                    ? "bg-indigo-600/10 text-indigo-400 border border-indigo-500/20 shadow-xs"
+                    : item.highlight
+                    ? "text-[#F4F4F5] bg-[#141417] hover:bg-[#18181B] border border-[#27272A]"
                     : "text-[#A1A1AA] hover:bg-[#141417] hover:text-[#F4F4F5]"
                 }`}
               >
@@ -112,6 +112,8 @@ export default function Sidebar({
                     className={`h-4 w-4 transition-colors ${
                       isActive
                         ? "text-indigo-400"
+                        : item.highlight
+                        ? "text-indigo-400"
                         : "text-[#71717A] group-hover:text-[#F4F4F5]"
                     }`}
                   />
@@ -119,27 +121,20 @@ export default function Sidebar({
                 </div>
 
                 {item.badge !== undefined && item.badge > 0 && (
-                  <span
-                    className={`rounded-full px-2 py-0.2 text-[10px] font-semibold ${
-                      isActive
-                        ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                        : "bg-[#18181B] text-[#A1A1AA] border border-[#27272A]"
-                    }`}
-                  >
+                  <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#27272A] px-1.5 text-[10px] font-mono text-[#A1A1AA]">
                     {item.badge}
                   </span>
                 )}
               </button>
             );
           })}
-        </nav>
+        </div>
 
-        {/* Secondary Navigation */}
-        <div className="space-y-1 pt-2">
-          <div className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">
-            Operations
-          </div>
-
+        {/* Platform Settings & Help */}
+        <div className="space-y-1 pt-4 border-t border-[#27272A]">
+          <p className="px-2 pb-1.5 text-[10px] font-semibold uppercase tracking-wider text-[#71717A]">
+            Platform Ops
+          </p>
           {secondaryNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
@@ -181,10 +176,25 @@ export default function Sidebar({
               <Sparkles className="h-3 w-3 text-indigo-400" />
               <span>AI Quota</span>
             </span>
-            <span className="font-mono text-[10px] text-[#F4F4F5]">18 / 20</span>
+            <span className="font-mono text-[10px] text-[#F4F4F5]">
+              {quota.used} / {quota.limit}
+            </span>
           </div>
           <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-[#27272A]">
-            <div className="h-full rounded-full bg-indigo-500" style={{ width: "90%" }} />
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${
+                quota.isExhausted
+                  ? "bg-rose-500"
+                  : quota.percentage >= 80
+                  ? "bg-amber-500"
+                  : "bg-indigo-500"
+              }`}
+              style={{ width: `${quota.percentage}%` }}
+            />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between text-[9px] text-[#71717A]">
+            <span>12h Window</span>
+            <span>Resets in {quota.formattedTimeRemaining}</span>
           </div>
         </div>
 

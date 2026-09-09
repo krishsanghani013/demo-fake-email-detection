@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ShieldAlert,
   Eye,
@@ -21,9 +21,9 @@ import {
 /**
  * DashboardView Component (Modern Cybersecurity SOC Console Overview)
  *
- * Implements the dense, technical SOC dashboard visual language inspired by the reference:
+ * Implements the dense, technical SOC dashboard visual language:
  * - Top 3 Key Classification Panels (Malicious, Review, Benign)
- * - Metric strip (Avg Risk Score, Avg Confidence, Signal Findings, Signal:Noise)
+ * - Metric strip (Avg Risk Score, Avg Confidence, Signal Findings)
  * - Investigation Volume trend curve with 1d/7d/14d/30d filter toggle
  * - Threat Category Distribution (MITRE ATT&CK & Forensic Vectors)
  * - Ingress Inbound Channels
@@ -41,12 +41,33 @@ export default function DashboardView({
   onNewInvestigation,
 }) {
   const [timeRange, setTimeRange] = useState("14d");
+  const [dbStats, setDbStats] = useState(null);
 
-  // Derive counts from actual stored cases or baseline metrics
-  const totalCases = cases.length || 64;
-  const maliciousCount = cases.filter((c) => c.classification === "fraudulent").length || 17;
-  const reviewCount = cases.filter((c) => c.classification === "suspicious").length || 36;
-  const benignCount = cases.filter((c) => c.classification === "legitimate").length || 11;
+  // Fetch live aggregate statistics from Prisma / Supabase database
+  useEffect(() => {
+    fetch("/api/dashboard/stats")
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.success && json?.source === "database" && json?.data) {
+          setDbStats(json.data);
+        }
+      })
+      .catch(() => {});
+  }, [cases.length]);
+
+  // Derive counts from live database stats or active cases
+  const totalCases = dbStats?.totalCases ?? cases.length;
+  const maliciousCount = dbStats?.maliciousCount ?? cases.filter((c) => c.classification === "fraudulent").length;
+  const reviewCount = dbStats?.reviewCount ?? cases.filter((c) => c.classification === "suspicious").length;
+  const benignCount = dbStats?.benignCount ?? cases.filter((c) => c.classification === "legitimate").length;
+
+  const avgRisk = dbStats?.avgRiskScore ?? (cases.length > 0
+    ? Math.round(cases.reduce((sum, c) => sum + (Number(c.riskScore) || 0), 0) / cases.length)
+    : 0);
+
+  const avgConfidence = dbStats?.avgConfidence ?? (cases.length > 0
+    ? Math.round(cases.reduce((sum, c) => sum + (Number(c.confidence) || 0), 0) / cases.length)
+    : 0);
 
   // Recent investigation items to display
   const recentCases = cases.slice(0, 5);
@@ -143,7 +164,7 @@ export default function DashboardView({
               <ShieldAlert className="h-3 w-3 text-indigo-400" />
               <span>Avg Risk</span>
             </div>
-            <p className="mt-1 font-mono text-lg font-bold text-[#F4F4F5]">53</p>
+            <p className="mt-1 font-mono text-lg font-bold text-[#F4F4F5]">{avgRisk}</p>
           </div>
 
           <div className="rounded-lg bg-[#18181B] p-2.5 border border-[#27272A]/70">
@@ -151,7 +172,7 @@ export default function DashboardView({
               <Activity className="h-3 w-3 text-indigo-400" />
               <span>Avg Conf</span>
             </div>
-            <p className="mt-1 font-mono text-lg font-bold text-emerald-400">77%</p>
+            <p className="mt-1 font-mono text-lg font-bold text-emerald-400">{avgConfidence}%</p>
           </div>
 
           <div className="rounded-lg bg-[#18181B] p-2.5 border border-[#27272A]/70">

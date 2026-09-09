@@ -26,6 +26,7 @@ import {
 import RiskScore from "./RiskScore";
 import ConfidenceScore from "./ConfidenceScore";
 import RiskBreakdown from "./RiskBreakdown";
+import WhyThisScore from "./WhyThisScore";
 import AuthenticationCard from "./AuthenticationCard";
 import ThreatIntelCard from "./ThreatIntelCard";
 import EvidenceList from "./EvidenceList";
@@ -70,6 +71,7 @@ export default function AnalysisResult({ result, onBack, onNewScan }) {
     createdAt,
     classification = "suspicious",
     riskLevel = "medium",
+    verdict,
     riskScore = 0,
     confidence = 0,
     indicators = [],
@@ -80,6 +82,7 @@ export default function AnalysisResult({ result, onBack, onNewScan }) {
     consistency,
     threatIntel,
     artifacts,
+    evidence = [],
     breakdown = [],
     categoryScores = {},
     aiRiskScore,
@@ -88,6 +91,9 @@ export default function AnalysisResult({ result, onBack, onNewScan }) {
     urls = [],
     attachments = [],
   } = result;
+
+  const safeEvidence = Array.isArray(evidence) && evidence.length > 0 ? evidence : (Array.isArray(breakdown) ? breakdown : []);
+  const displayVerdict = verdict || (classification === "fraudulent" ? "CRITICAL / PHISHING" : classification === "suspicious" ? "HIGH / SUSPICIOUS" : "LOW / LEGITIMATE");
 
   const isMalicious = classification === "fraudulent";
   const isSuspicious = classification === "suspicious";
@@ -164,7 +170,7 @@ export default function AnalysisResult({ result, onBack, onNewScan }) {
                       isMalicious ? "bg-rose-500" : isSuspicious ? "bg-amber-500" : "bg-emerald-500"
                     }`}
                   />
-                  <span>{isMalicious ? "MALICIOUS" : isSuspicious ? "REVIEW" : "BENIGN"}</span>
+                  <span>{displayVerdict}</span>
                 </span>
               </div>
               <p className="mt-0.5 text-xs text-[#A1A1AA] truncate max-w-xl">
@@ -366,19 +372,21 @@ export default function AnalysisResult({ result, onBack, onNewScan }) {
             </div>
           </div>
 
-          {/* Why This Score? Section */}
-          <RiskBreakdown
-            breakdown={breakdown}
+          {/* Why This Score? Section (Forensic Evidence Chain) */}
+          <WhyThisScore
+            evidence={safeEvidence}
             categoryScores={categoryScores}
             riskScore={riskScore}
+            riskLevel={riskLevel}
+            verdict={displayVerdict}
             aiRiskScore={aiRiskScore}
           />
 
           {/* Investigation Summary Briefing */}
           <InvestigationSummary result={result} />
 
-          {/* AI Evidence Findings List */}
-          <EvidenceList indicators={indicators} />
+          {/* Detailed Forensic Evidence Findings List */}
+          <EvidenceList evidence={safeEvidence} indicators={indicators} />
         </div>
       )}
 

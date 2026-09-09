@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Plus, Menu, Zap, ShieldAlert, AlertTriangle, ShieldCheck } from "lucide-react";
+import { useQuota } from "@/lib/quota";
 
 /**
  * TopNavbar Component (Modern Dark SOC Top Bar)
@@ -19,6 +20,7 @@ export default function TopNavbar({
   onNewInvestigation,
   summaryStats = { malicious: 17, review: 36, benign: 11 },
 }) {
+  const quota = useQuota();
   return (
     <header className="sticky top-0 z-20 flex h-14 w-full shrink-0 items-center justify-between border-b border-[#27272A] bg-[#09090B]/90 backdrop-blur-md px-4 sm:px-6">
       {/* Left: Mobile Menu Trigger & Status Indicator Pills */}
@@ -60,9 +62,22 @@ export default function TopNavbar({
       {/* Right: AI Quota & Primary New Investigation Button */}
       <div className="flex items-center gap-2 sm:gap-3">
         {/* Quota Tag */}
-        <div className="hidden md:flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#141417] px-2.5 py-1 text-xs font-mono text-[#A1A1AA]">
-          <Zap className="h-3 w-3 text-indigo-400 fill-indigo-400" />
-          <span>18 / 20 Analyses</span>
+        <div
+          className="hidden md:flex items-center gap-1.5 rounded-md border border-[#27272A] bg-[#141417] px-2.5 py-1 text-xs font-mono text-[#A1A1AA]"
+          title={`12-hour AI analysis limit: ${quota.used}/${quota.limit} used. Resets in ${quota.formattedTimeRemaining}`}
+        >
+          <Zap
+            className={`h-3 w-3 ${
+              quota.isExhausted
+                ? "text-rose-400 fill-rose-400"
+                : quota.percentage >= 80
+                ? "text-amber-400 fill-amber-400"
+                : "text-indigo-400 fill-indigo-400"
+            }`}
+          />
+          <span className={quota.isExhausted ? "text-rose-400 font-semibold" : ""}>
+            {quota.used} / {quota.limit} Analyses
+          </span>
         </div>
 
         {/* Primary Action Button */}

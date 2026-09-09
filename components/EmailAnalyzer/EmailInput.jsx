@@ -17,6 +17,7 @@ import EmailFileUpload from "./EmailFileUpload";
 import EmailPreview from "./EmailPreview";
 import { calculateUnifiedRisk } from "@/lib/riskEngine";
 import { saveCaseToStorage } from "@/lib/caseStorage";
+import { useQuota, consumeQuota, resetQuotaManually } from "@/lib/quota";
 
 /**
  * Visual loading stages shown while the forensic AI analysis is in progress.
@@ -41,6 +42,7 @@ const LOADING_STAGES = [
  * @param {Function} props.onAnalysisComplete - Callback invoked with the parsed analysis result object.
  */
 export default function EmailInput({ onAnalysisComplete }) {
+  const quota = useQuota();
   const [activeTab, setActiveTab] = useState("paste"); // "paste" | "upload"
   const [emailText, setEmailText] = useState("");
   const [parsedEmailData, setParsedEmailData] = useState(null);
@@ -82,6 +84,13 @@ export default function EmailInput({ onAnalysisComplete }) {
 
     if (isSubmitDisabled || isSubmittingRef.current) return;
 
+    if (quota.isExhausted) {
+      setError(
+        `AI Quota Exceeded (${quota.limit}/${quota.limit} used in this 12-hour window). Quota will auto-reset in ${quota.formattedTimeRemaining}.`
+      );
+      return;
+    }
+
     isSubmittingRef.current = true;
     setIsLoading(true);
     setError(null);
@@ -116,40 +125,68 @@ export default function EmailInput({ onAnalysisComplete }) {
         throw new Error(errorMsg || "Unable to analyze this email. Please try again.");
       }
 
+      // If parsedEmailData is not already present from file upload, parse pasted email
+      let currentParsed = parsedEmailData;
+      if (!currentParsed && emailText.trim().length > 0) {
+        try {
+          const parseRes = await fetch("/api/parse-eml", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ emlContent: emailText.trim() }),
+          });
+          if (parseRes.ok) {
+            const parseJson = await parseRes.json();
+            if (parseJson?.success && parseJson?.data) {
+              currentParsed = parseJson.data;
+            }
+          }
+        } catch (parseErr) {
+          console.warn("Pasted email structure parse fallback:", parseErr?.message || parseErr);
+        }
+      }
+
       if (typeof onAnalysisComplete === "function") {
         const unifiedRisk = calculateUnifiedRisk({
           aiResult: result.data,
-          authentication: parsedEmailData?.authentication || null,
-          identity: parsedEmailData?.identity || null,
-          consistency: parsedEmailData?.consistency || null,
-          threatIntel: parsedEmailData?.threatIntel || null,
-          artifacts: parsedEmailData?.artifacts || null,
+          authentication: currentParsed?.authentication || null,
+          identity: currentParsed?.identity || null,
+          consistency: currentParsed?.consistency || null,
+          threatIntel: currentParsed?.threatIntel || null,
+          artifacts: currentParsed?.artifacts || null,
         });
 
         const combinedResult = {
           ...result.data,
+          verdict: unifiedRisk.verdict,
           riskScore: unifiedRisk.riskScore,
           riskLevel: unifiedRisk.riskLevel,
           classification: unifiedRisk.classification,
           confidence: unifiedRisk.confidence,
+          evidence: unifiedRisk.evidence,
           breakdown: unifiedRisk.breakdown,
           categoryScores: unifiedRisk.categoryScores,
           aiRiskScore: unifiedRisk.aiRiskScore,
-          authentication: parsedEmailData?.authentication || null,
-          identity: parsedEmailData?.identity || null,
-          consistency: parsedEmailData?.consistency || null,
-          threatIntel: parsedEmailData?.threatIntel || null,
-          artifacts: parsedEmailData?.artifacts || null,
-          metadata: parsedEmailData?.metadata || {
+          authentication: currentParsed?.authentication || null,
+          identity: currentParsed?.identity || null,
+          consistency: currentParsed?.consistency || null,
+          threatIntel: currentParsed?.threatIntel || null,
+          artifacts: currentParsed?.artifacts || null,
+          metadata: currentParsed?.metadata || {
             from: "Extracted from Plain Text",
             subject: "Pasted Email Forensics Scan",
             date: new Date().toISOString(),
           },
-          body: parsedEmailData?.body || { text: emailText },
+          body: currentParsed?.body || { text: emailText },
+          urls: currentParsed?.urls || [],
+          attachments: currentParsed?.attachments || [],
         };
 
-        // Automatically persist investigation into local history for dashboard
-        saveCaseToStorage(combinedResult);
+        // Automatically persist investigation into Prisma & Supabase (with local fallback)
+        try {
+          await saveCaseToStorage(combinedResult);
+        } catch (saveErr) {
+          console.warn("[Client] Case persistence warning:", saveErr);
+        }
 
         onAnalysisComplete(combinedResult);
       }
@@ -331,6 +368,19 @@ export default function EmailInput({ onAnalysisComplete }) {
               <p className="mt-0.5 leading-relaxed text-rose-300">
                 {error}
               </p>
+              {(quota.isExhausted || error.toLowerCase().includes("quota")) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetQuotaManually();
+                    setError(null);
+                  }}
+                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-indigo-500 transition-colors"
+                >
+                  <Zap className="h-3 w-3" />
+                  <span>Reset Quota Now (Test / Demo)</span>
+                </button>
+              )}
             </div>
             <button
               type="button"

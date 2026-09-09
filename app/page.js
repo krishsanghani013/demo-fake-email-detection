@@ -10,7 +10,12 @@ import SettingsView from "@/components/Dashboard/SettingsView";
 import EmailInput from "@/components/EmailAnalyzer/EmailInput";
 import AnalysisResult from "@/components/Analysis/AnalysisResult";
 import ForensicReport from "@/components/Reports/ForensicReport";
-import { getStoredCases, seedDefaultCasesIfEmpty } from "@/lib/caseStorage";
+import {
+  getStoredCases,
+  seedDefaultCasesIfEmpty,
+  syncCasesWithDatabase,
+  fetchCaseDetails,
+} from "@/lib/caseStorage";
 
 /**
  * Main Application Shell (Modern Dark Cybersecurity SOC Console)
@@ -25,12 +30,20 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
-  // Load client-side storage safely on mount to prevent SSR hydration mismatches
+  // Load client-side storage safely on mount to prevent SSR hydration mismatches,
+  // then seamlessly sync with server/Prisma database.
   useEffect(() => {
     const timer = setTimeout(() => {
       setMounted(true);
       seedDefaultCasesIfEmpty();
       setStoredCases(getStoredCases());
+
+      // Sync with Prisma / Supabase database in background
+      syncCasesWithDatabase().then((cases) => {
+        if (cases && cases.length > 0) {
+          setStoredCases(cases);
+        }
+      });
     }, 0);
     return () => clearTimeout(timer);
   }, []);
@@ -40,12 +53,24 @@ export default function Home() {
     setActiveCaseResult(result);
     setActiveView("case-detail");
     setStoredCases(getStoredCases());
+
+    // Re-sync with database
+    syncCasesWithDatabase().then((cases) => {
+      if (cases && cases.length > 0) {
+        setStoredCases(cases);
+      }
+    });
   };
 
   // Handler when selecting a case from Dashboard or Investigations table
-  const handleSelectCase = (caseObj) => {
+  const handleSelectCase = async (caseObj) => {
     if (caseObj) {
-      setActiveCaseResult(caseObj);
+      if (caseObj.fullResult) {
+        setActiveCaseResult(caseObj.fullResult);
+      } else {
+        const full = await fetchCaseDetails(caseObj.caseId || caseObj.id);
+        setActiveCaseResult(full || caseObj);
+      }
       setActiveView("case-detail");
     }
   };

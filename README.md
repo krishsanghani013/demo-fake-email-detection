@@ -1,36 +1,34 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# SIH 2026 — Explainable Email Forensics Platform
 
-## Getting Started
+An explainable email-forensics and fraud detection platform that analyzes raw RFC 5322 emails and produces transparent, evidence-backed risk verdicts.
 
-First, run the development server:
+> 📖 **Comprehensive Project Documentation:**  
+> For complete technical architecture, directory file maps, scoring methodology, evidence models, UI components, and maintenance guidelines, refer to **[`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md)**.
 
+---
+
+## Quick Start
+
+### 1. Run Automated Test Suite
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+node scripts/test_evidence_chain.mjs
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Start Development Server
+```bash
+npm run dev
+```
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+### 3. Build Production Bundle
+```bash
+npm run build
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+---
 
-## Learn More
+## Core Principle: Evidence Chain
+Every significant risk point is traceable to actual forensic evidence:
 
-To learn more about Next.js, take a look at the following resources:
+$$\text{RAW EMAIL} \longrightarrow \text{OBSERVED EVIDENCE} \longrightarrow \text{ARTIFACT / SIGNAL} \longrightarrow \text{DETERMINISTIC ANALYSIS} \longrightarrow \text{RISK CONTRIBUTION} \longrightarrow \text{FINAL VERDICT}$$
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [`PROJECT_DOCUMENTATION.md`](./PROJECT_DOCUMENTATION.md) for full details.

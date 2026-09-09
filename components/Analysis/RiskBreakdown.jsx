@@ -182,27 +182,44 @@ export default function RiskBreakdown({
 
               return (
                 <div
-                  key={idx}
-                  className="flex items-center justify-between rounded-lg border border-[#27272A] bg-[#141417] p-2.5 text-xs transition-colors hover:border-[#3F3F46]"
+                  key={item.id || idx}
+                  className="flex flex-col gap-1.5 rounded-lg border border-[#27272A] bg-[#141417] p-2.5 text-xs transition-colors hover:border-[#3F3F46]"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-3">
-                    <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${visuals.border} ${visuals.bg} ${visuals.color}`}>
-                      <VisualIcon className="h-3.5 w-3.5" />
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1 pr-3">
+                      <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-md border ${visuals.border} ${visuals.bg} ${visuals.color}`}>
+                        <VisualIcon className="h-3.5 w-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {item.id && (
+                            <span className="font-mono text-[9px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/20 px-1 py-0.2 rounded">
+                              {item.id}
+                            </span>
+                          )}
+                          <p className="font-medium text-[#F4F4F5] truncate">
+                            {item.explanation || item.finding}
+                          </p>
+                        </div>
+                        <span className="text-[10px] text-[#71717A] capitalize font-mono">
+                          {item.source} • {item.category}
+                          {item.artifact && ` • artifact: ${item.artifact}`}
+                        </span>
+                      </div>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-[#F4F4F5] truncate">
-                        {item.finding}
-                      </p>
-                      <span className="text-[10px] text-[#71717A] capitalize font-mono">
-                        {item.source} • {item.category}
-                      </span>
+
+                    <div className="flex items-center gap-1 shrink-0 font-mono font-bold text-rose-400 text-xs">
+                      <PlusCircle className="h-3.5 w-3.5" />
+                      <span>+{item.riskContribution ?? item.contribution} pts</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0 font-mono font-bold text-rose-400 text-xs">
-                    <PlusCircle className="h-3.5 w-3.5" />
-                    <span>+{item.contribution} pts</span>
-                  </div>
+                  {item.evidence && (
+                    <div className="ml-8 rounded bg-[#0E0E11] px-2 py-1 text-[10px] font-mono text-[#A1A1AA] border border-[#27272A]/70 truncate">
+                      <span className="text-[#71717A] mr-1">Evidence:</span>
+                      <span className="text-[#E4E4E7]">{item.evidence.length > 120 ? `${item.evidence.slice(0, 120)}...` : item.evidence}</span>
+                    </div>
+                  )}
                 </div>
               );
             })}

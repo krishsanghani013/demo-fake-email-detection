@@ -11,50 +11,45 @@ import {
   Clock,
   MailWarning,
   Quote,
+  ShieldCheck,
+  Globe,
+  GitCompare,
+  Bot,
+  Database,
+  Terminal,
 } from "lucide-react";
+import RiskContribution from "./RiskContribution";
 
 /**
- * Returns an appropriate contextual icon based on indicator type keywords.
+ * Returns an appropriate icon based on category and type.
  */
-function getIndicatorTypeIcon(typeString) {
-  const lower = String(typeString || "").toLowerCase();
-  if (lower.includes("url") || lower.includes("link") || lower.includes("domain")) {
-    return Link2;
+function getEvidenceIcon(category, typeString) {
+  const lowerCat = String(category || "").toLowerCase();
+  const lowerType = String(typeString || "").toLowerCase();
+
+  if (lowerCat.includes("threat") || lowerType.includes("url") || lowerType.includes("domain") || lowerType.includes("ip")) {
+    if (lowerType.includes("url")) return Link2;
+    return Globe;
   }
-  if (
-    lower.includes("credential") ||
-    lower.includes("password") ||
-    lower.includes("login") ||
-    lower.includes("harvest")
-  ) {
+  if (lowerCat.includes("auth") || lowerType.includes("spf") || lowerType.includes("dkim") || lowerType.includes("dmarc")) {
+    return ShieldCheck;
+  }
+  if (lowerCat.includes("ident") || lowerType.includes("mismatch") || lowerType.includes("sender")) {
+    return GitCompare;
+  }
+  if (lowerType.includes("credential") || lowerType.includes("harvest") || lowerType.includes("password")) {
     return KeyRound;
   }
-  if (
-    lower.includes("financial") ||
-    lower.includes("invoice") ||
-    lower.includes("payment") ||
-    lower.includes("wire") ||
-    lower.includes("money")
-  ) {
+  if (lowerType.includes("financial") || lowerType.includes("wire") || lowerType.includes("invoice")) {
     return DollarSign;
   }
-  if (
-    lower.includes("impersonat") ||
-    lower.includes("spoof") ||
-    lower.includes("authority") ||
-    lower.includes("brand")
-  ) {
+  if (lowerType.includes("impersonat") || lowerType.includes("brand")) {
     return UserX;
   }
-  if (
-    lower.includes("urgency") ||
-    lower.includes("pressure") ||
-    lower.includes("deadline") ||
-    lower.includes("time")
-  ) {
+  if (lowerType.includes("urgency") || lowerType.includes("time")) {
     return Clock;
   }
-  return MailWarning;
+  return Bot;
 }
 
 /**
@@ -62,88 +57,163 @@ function getIndicatorTypeIcon(typeString) {
  */
 const SEVERITY_CONFIG = {
   critical: {
-    label: "Critical",
-    badgeClass:
-      "border border-rose-500/30 bg-rose-500/10 text-rose-400 font-mono",
+    label: "CRITICAL",
+    badgeClass: "border border-rose-500/30 bg-rose-500/10 text-rose-400 font-mono",
     borderClass: "border-l-4 border-l-rose-500 border-[#27272A]",
     icon: AlertOctagon,
   },
   high: {
-    label: "High",
-    badgeClass:
-      "border border-orange-500/30 bg-orange-500/10 text-orange-400 font-mono",
+    label: "HIGH",
+    badgeClass: "border border-orange-500/30 bg-orange-500/10 text-orange-400 font-mono",
     borderClass: "border-l-4 border-l-orange-500 border-[#27272A]",
     icon: Flame,
   },
   medium: {
-    label: "Medium",
-    badgeClass:
-      "border border-amber-500/30 bg-amber-500/10 text-amber-400 font-mono",
+    label: "MEDIUM",
+    badgeClass: "border border-amber-500/30 bg-amber-500/10 text-amber-400 font-mono",
     borderClass: "border-l-4 border-l-amber-500 border-[#27272A]",
     icon: AlertTriangle,
   },
   low: {
-    label: "Low",
-    badgeClass:
-      "border border-blue-500/30 bg-blue-500/10 text-blue-400 font-mono",
+    label: "LOW",
+    badgeClass: "border border-blue-500/30 bg-blue-500/10 text-blue-400 font-mono",
     borderClass: "border-l-4 border-l-blue-500 border-[#27272A]",
     icon: Info,
   },
 };
 
 /**
- * EvidenceCard Component (Dark SOC Theme)
+ * Humanizes raw machine types (e.g. "reply_to_mismatch" -> "Reply-To Mismatch").
  */
-export default function EvidenceCard({ indicator }) {
-  if (!indicator) return null;
+function humanizeType(typeStr) {
+  if (!typeStr) return "Forensic Observation";
+  if (typeStr.includes(" ") || typeStr.includes("-")) return typeStr;
+  return typeStr
+    .split("_")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
 
-  const { type, severity, description, evidence, confidence } = indicator;
-  const normSev = String(severity || "").toLowerCase().trim();
+/**
+ * Formats confidence to integer percentage (e.g. 0.95 -> 95%).
+ */
+function formatConfidence(conf) {
+  if (typeof conf !== "number" || isNaN(conf)) return null;
+  const pct = conf <= 1 ? Math.round(conf * 100) : Math.round(conf);
+  return `${pct}%`;
+}
+
+/**
+ * EvidenceCard Component (Dark SOC Theme)
+ *
+ * Renders an explainable Evidence Chain card:
+ * - Stable ID (EV-001)
+ * - Severity Badge ([CRITICAL], [HIGH], etc.)
+ * - Risk Contribution (+X pts)
+ * - Source attribution
+ * - Observed Evidence snippet
+ * - Extracted artifact tag
+ * - Explanation
+ * - Confidence metric
+ *
+ * @param {Object} props
+ * @param {Object} [props.evidence] - Standard EvidenceItem object.
+ * @param {Object} [props.indicator] - Legacy indicator object fallback.
+ */
+export default function EvidenceCard({ evidence: evidenceProp, indicator }) {
+  const item = evidenceProp || indicator;
+  if (!item) return null;
+
+  const id = item.id || null;
+  const category = item.category || "ai";
+  const rawType = item.type || item.finding || "Forensic Observation";
+  const title = humanizeType(rawType);
+  const source = item.source || (category === "ai" ? "AI Content Analysis" : "Email Inspection");
+  const explanation = item.explanation || item.description || item.finding || "";
+  const observedEvidence = item.evidence || null;
+  const artifact = item.artifact || null;
+  const points = item.riskContribution ?? item.contribution ?? null;
+
+  const normSev = String(item.severity || "").toLowerCase().trim();
   const config = SEVERITY_CONFIG[normSev] || SEVERITY_CONFIG.medium;
-  const typeIconComponent = getIndicatorTypeIcon(type);
-  const severityIconComponent = config.icon;
+  const SeverityIcon = config.icon;
+  const iconComponent = getEvidenceIcon(category, rawType);
+  const formattedConf = formatConfidence(item.confidence);
 
   return (
     <div
-      className={`group rounded-xl border bg-[#141417] p-4.5 shadow-2xs transition-all hover:bg-[#18181B] ${config.borderClass}`}
+      className={`group relative rounded-xl border bg-[#141417] p-4.5 shadow-2xs transition-all hover:border-[#3F3F46] hover:bg-[#18181B] ${config.borderClass}`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#18181B] text-indigo-400 border border-[#27272A]">
-            {React.createElement(typeIconComponent, { className: "h-4 w-4" })}
+      {/* Top Header Row: ID, Severity, Type, Points */}
+      <div className="flex flex-wrap items-start justify-between gap-2.5">
+        <div className="flex items-center gap-2.5 min-w-0 flex-1">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#18181B] text-indigo-400 border border-[#27272A] group-hover:border-indigo-500/40">
+            {React.createElement(iconComponent, { className: "h-4 w-4" })}
           </div>
-          <h4 className="text-xs font-semibold text-[#F4F4F5]">
-            {type || "Forensic Observation"}
-          </h4>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              {id && (
+                <span className="font-mono text-[10px] font-bold text-indigo-400 bg-indigo-500/10 border border-indigo-500/25 px-1.5 py-0.5 rounded">
+                  {id}
+                </span>
+              )}
+              <h4 className="text-xs font-bold text-[#F4F4F5] truncate">
+                {title}
+              </h4>
+            </div>
+
+            <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[#71717A] font-mono">
+              <span>Source: <strong className="text-[#A1A1AA]">{source}</strong></span>
+              {artifact && (
+                <>
+                  <span>•</span>
+                  <span className="truncate">Artifact: <code className="text-indigo-300 font-mono">{artifact}</code></span>
+                </>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Severity Badge & Confidence */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          {typeof confidence === "number" && confidence > 0 && (
-            <span className="font-mono text-[10px] text-[#71717A]">
-              {confidence}% conf
-            </span>
+        {/* Severity Badge & Points */}
+        <div className="flex items-center gap-2 shrink-0">
+          {points !== null && points > 0 && (
+            <RiskContribution points={points} severity={normSev} />
           )}
+
           <span
             className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${config.badgeClass}`}
           >
-            {React.createElement(severityIconComponent, { className: "h-3 w-3" })}
+            <SeverityIcon className="h-3 w-3" />
             <span>{config.label}</span>
           </span>
         </div>
       </div>
 
-      <p className="mt-2.5 text-xs leading-relaxed text-[#A1A1AA]">
-        {description || "No specific evidence description provided."}
-      </p>
+      {/* Explanation Text */}
+      {explanation && (
+        <p className="mt-3 text-xs leading-relaxed text-[#D4D4D8]">
+          {explanation}
+        </p>
+      )}
 
-      {evidence && (
-        <div className="mt-2.5 rounded-lg bg-[#18181B] p-2 border border-[#27272A] text-[11px] font-mono text-[#D4D4D8]">
-          <div className="flex items-center gap-1 text-[9px] uppercase tracking-wider text-[#71717A] mb-0.5 font-sans font-semibold">
-            <Quote className="h-2.5 w-2.5 text-indigo-400" />
-            <span>Observed Evidence Snippet</span>
+      {/* Observed Evidence Quote / Block */}
+      {observedEvidence && (
+        <div className="mt-3 rounded-lg bg-[#0E0E11] p-2.5 border border-[#27272A] text-xs font-mono text-[#E4E4E7]">
+          <div className="flex items-center justify-between gap-2 pb-1 border-b border-[#27272A]/70 text-[9px] uppercase tracking-wider text-[#71717A] font-sans font-semibold">
+            <div className="flex items-center gap-1 text-indigo-400">
+              <Terminal className="h-2.5 w-2.5" />
+              <span>Observed Forensic Evidence</span>
+            </div>
+            {formattedConf && (
+              <span className="font-mono text-[9px] text-[#A1A1AA]">
+                Confidence: {formattedConf}
+              </span>
+            )}
           </div>
-          <span className="break-all">&ldquo;{evidence}&rdquo;</span>
+          <pre className="mt-1.5 whitespace-pre-wrap break-all text-[11px] leading-relaxed text-[#D4D4D8] font-mono select-all">
+            {observedEvidence}
+          </pre>
         </div>
       )}
     </div>

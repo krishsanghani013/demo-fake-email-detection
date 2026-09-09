@@ -1,0 +1,231 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String?
+  cases        Case[]
+  analystNotes AnalystNote[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("users")
+}
+
+model Case {
+  id                  String               @id @default(uuid())
+  caseNumber          String               @unique
+  userId              String?
+  user                User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  classification      CaseClassification   @default(SUSPICIOUS)
+  riskScore           Int                  @default(0)
+  riskLevel           RiskLevel            @default(MEDIUM)
+  confidence          Float                @default(0)
+  status              CaseStatus           @default(NEW)
+  verdict             String?
+  subject             String?
+  sender              String?
+  recipient           String?
+  categoryScores      Json?
+  aiSummary           String?              @db.Text
+  aiRecommendation    String?              @db.Text
+  isDemo              Boolean              @default(false)
+  email               Email?
+  artifacts           Artifact[]
+  evidence            Evidence[]
+  investigationEvents InvestigationEvent[]
+  analystNotes        AnalystNote[]
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@index([userId])
+  @@index([caseNumber])
+  @@index([classification])
+  @@index([riskLevel])
+  @@index([status])
+  @@index([createdAt])
+  @@map("cases")
+}
+
+model Email {
+  id              String     @id @default(uuid())
+  caseId          String     @unique
+  case            Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  from            String?
+  to              String?
+  cc              String?
+  bcc             String?
+  replyTo         String?
+  returnPath      String?
+  subject         String?
+  date            String?
+  messageId       String?
+  inReplyTo       String?
+  references      String?
+  bodyText        String?    @db.Text
+  rawHeaders      Json?
+  attachments     Json?
+  authentication  Json?
+  identity        Json?
+  consistency     Json?
+  receivedHeaders Json?
+  artifacts       Artifact[]
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  @@index([caseId])
+  @@map("emails")
+}
+
+model Artifact {
+  id                        String                     @id @default(uuid())
+  caseId                    String
+  case                      Case                       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  emailId                   String?
+  email                     Email?                     @relation(fields: [emailId], references: [id], onDelete: Cascade)
+  type                      ArtifactType
+  value                     String                     @db.Text
+  normalizedValue           String?                    @db.Text
+  reputation                String?
+  reputationSource          String?
+  confidence                Float?
+  details                   Json?
+  threatIntelligenceResults ThreatIntelligenceResult[]
+  evidence                  Evidence[]
+  createdAt                 DateTime                   @default(now())
+
+  @@index([caseId])
+  @@index([emailId])
+  @@index([type])
+  @@map("artifacts")
+}
+
+model ThreatIntelligenceResult {
+  id         String       @id @default(uuid())
+  artifactId String
+  artifact   Artifact     @relation(fields: [artifactId], references: [id], onDelete: Cascade)
+  provider   String
+  result     ThreatResult @default(UNKNOWN)
+  reputation String?
+  confidence Float?
+  rawResult  Json?
+  checkedAt  DateTime     @default(now())
+
+  @@index([artifactId])
+  @@map("threat_intelligence_results")
+}
+
+model Evidence {
+  id               String           @id @default(uuid())
+  evidenceId       String?
+  caseId           String
+  case             Case             @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  artifactId       String?
+  artifact         Artifact?        @relation(fields: [artifactId], references: [id], onDelete: SetNull)
+  category         EvidenceCategory
+  type             String
+  source           String
+  evidence         String           @db.Text
+  severity         EvidenceSeverity @default(MEDIUM)
+  confidence       Float?
+  riskContribution Int              @default(0)
+  explanation      String           @db.Text
+  createdAt        DateTime         @default(now())
+
+  @@index([caseId])
+  @@index([artifactId])
+  @@index([category])
+  @@map("evidence")
+}
+
+model InvestigationEvent {
+  id             String    @id @default(uuid())
+  caseId         String
+  case           Case      @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  eventType      String
+  title          String
+  description    String    @db.Text
+  source         String?
+  severity       String?
+  eventTimestamp DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([caseId])
+  @@index([createdAt])
+  @@map("investigation_events")
+}
+
+model AnalystNote {
+  id        String   @id @default(uuid())
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  note      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([caseId])
+  @@index([userId])
+  @@map("analyst_notes")
+}
+
+enum CaseClassification {
+  LEGITIMATE
+  SUSPICIOUS
+  FRAUDULENT
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CaseStatus {
+  NEW
+  INVESTIGATING
+  REVIEWED
+  ESCALATED
+  RESOLVED
+  ARCHIVED
+}
+
+enum ArtifactType {
+  URL
+  DOMAIN
+  IP
+  ATTACHMENT
+}
+
+enum ThreatResult {
+  CLEAN
+  SUSPICIOUS
+  MALICIOUS
+  UNKNOWN
+}
+
+enum EvidenceCategory {
+  AI_CONTENT
+  AUTHENTICATION
+  IDENTITY
+  THREAT_INTELLIGENCE
+}
+
+enum EvidenceSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
