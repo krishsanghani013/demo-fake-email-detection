@@ -12,13 +12,18 @@ datasource db {
 
 model User {
   id           String        @id @default(uuid())
+  clerkUserId  String        @unique
   email        String        @unique
   name         String?
+  firstName    String?
+  lastName     String?
+  imageUrl     String?
   cases        Case[]
   analystNotes AnalystNote[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
+  @@index([clerkUserId])
   @@map("users")
 }
 

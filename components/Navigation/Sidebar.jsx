@@ -16,6 +16,7 @@ import {
   X,
 } from "lucide-react";
 import { useQuota } from "@/lib/quota";
+import { SignInButton, Show, UserButton } from "@clerk/nextjs";
 
 /**
  * Sidebar Component (Modern Dark Cybersecurity Console)
@@ -198,29 +199,51 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Analyst Profile */}
-        <div className="flex items-center justify-between rounded-lg bg-[#141417] p-2.5 border border-[#27272A]">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#27272A] text-indigo-400 border border-[#3F3F46]">
-              <Shield className="h-3.5 w-3.5" />
+        {/* Analyst Profile & Clerk Auth */}
+        <Show when="signed-out">
+          <div className="flex items-center justify-between rounded-lg bg-[#141417] p-2.5 border border-[#27272A]">
+            <div className="min-w-0 pr-2">
+              <p className="text-xs font-semibold text-[#F4F4F5] truncate">Guest Session</p>
+              <p className="text-[10px] text-[#71717A] truncate">Sign in for full access</p>
             </div>
-            <div className="min-w-0 truncate">
-              <p className="text-xs font-semibold text-[#F4F4F5] truncate">
-                SOC Tier-2 Analyst
-              </p>
-              <p className="text-[10px] text-[#71717A] truncate">
-                secops.internal
-              </p>
-            </div>
+            <SignInButton mode="modal">
+              <button
+                type="button"
+                className="inline-flex h-7 shrink-0 items-center justify-center rounded-md bg-indigo-600 px-2.5 text-[11px] font-semibold text-white hover:bg-indigo-500 transition-colors"
+              >
+                Sign In
+              </button>
+            </SignInButton>
           </div>
+        </Show>
+        <Show when="signed-in">
+          <div className="flex items-center justify-between rounded-lg bg-[#141417] p-2.5 border border-[#27272A]">
+            <div className="flex items-center gap-2 min-w-0">
+              <UserButton
+                appearance={{
+                  elements: {
+                    avatarBox: "h-7 w-7 rounded-md border border-[#3F3F46]",
+                  },
+                }}
+              />
+              <div className="min-w-0 truncate">
+                <p className="text-xs font-semibold text-[#F4F4F5] truncate">
+                  SOC Tier-2 Analyst
+                </p>
+                <p className="text-[10px] text-[#71717A] truncate">
+                  secops.internal
+                </p>
+              </div>
+            </div>
 
-          <div className="flex items-center" title="Live heuristics active">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
+            <div className="flex items-center" title="Live heuristics active">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+            </div>
           </div>
-        </div>
+        </Show>
       </div>
     </div>
   );

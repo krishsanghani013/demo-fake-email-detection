@@ -2,7 +2,9 @@
 
 import React from "react";
 import { Plus, Menu, Zap, ShieldAlert, AlertTriangle, ShieldCheck } from "lucide-react";
+import { SignInButton, SignUpButton, Show, UserButton } from "@clerk/nextjs";
 import { useQuota } from "@/lib/quota";
+import UserSync from "./UserSync";
 
 /**
  * TopNavbar Component (Modern Dark SOC Top Bar)
@@ -89,6 +91,38 @@ export default function TopNavbar({
           <Plus className="h-3.5 w-3.5" />
           <span>New Investigation</span>
         </button>
+
+        {/* Clerk Auth Controls */}
+        <div className="flex items-center gap-2 border-l border-[#27272A] pl-2 sm:pl-3">
+          <Show when="signed-out">
+            <SignInButton mode="modal">
+              <button
+                type="button"
+                className="inline-flex h-8 items-center justify-center rounded-lg border border-[#27272A] bg-[#141417] px-2.5 sm:px-3 text-xs font-medium text-[#F4F4F5] hover:bg-[#27272A] hover:text-white transition-colors"
+              >
+                Sign In
+              </button>
+            </SignInButton>
+            <SignUpButton mode="modal">
+              <button
+                type="button"
+                className="inline-flex h-8 items-center justify-center rounded-lg bg-indigo-600 px-2.5 sm:px-3 text-xs font-medium text-white hover:bg-indigo-500 transition-colors shadow-xs"
+              >
+                Sign Up
+              </button>
+            </SignUpButton>
+          </Show>
+          <Show when="signed-in">
+            <UserButton
+              appearance={{
+                elements: {
+                  avatarBox: "h-8 w-8 rounded-lg border border-[#27272A]",
+                },
+              }}
+            />
+            <UserSync />
+          </Show>
+        </div>
       </div>
     </header>
   );

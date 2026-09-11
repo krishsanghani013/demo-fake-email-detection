@@ -28,8 +28,12 @@ CREATE TYPE "EvidenceSeverity" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
 -- CreateTable
 CREATE TABLE "users" (
     "id" TEXT NOT NULL,
+    "clerkUserId" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "name" TEXT,
+    "firstName" TEXT,
+    "lastName" TEXT,
+    "imageUrl" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -257,3 +261,9 @@ ALTER TABLE "analyst_notes" ADD CONSTRAINT "analyst_notes_caseId_fkey" FOREIGN K
 
 -- AddForeignKey
 ALTER TABLE "analyst_notes" ADD CONSTRAINT "analyst_notes_userId_fkey" FOREIGN KEY ("userId") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- CreateIndex
+CREATE UNIQUE INDEX "users_email_key" ON "users"("email");
+CREATE UNIQUE INDEX "users_clerkUserId_key" ON "users"("clerkUserId");
+CREATE INDEX "users_clerkUserId_idx" ON "users"("clerkUserId");
+
