@@ -1,5 +1,6 @@
 import React from "react";
 import { Link2, AlertTriangle, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
+import CopyButton from "@/components/ui/CopyButton";
 
 /**
  * Returns badge styling for threat intelligence status.
@@ -57,11 +58,12 @@ export default function UrlIntelCard({ urlIntel, artifact }) {
       {/* Top row: URL and Status Badge */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-start gap-2 min-w-0 flex-1">
-          <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-indigo-400" />
-          <div className="min-w-0 flex-1">
-            <p className="font-mono text-[11px] font-semibold text-[#F4F4F5] break-all select-all">
+          <Link2 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-400" />
+          <div className="min-w-0 flex-1 flex items-center gap-2 flex-wrap">
+            <p className="font-mono text-[11px] font-semibold text-[#F8FAFC] break-all select-all">
               {urlIntel.artifact}
             </p>
+            <CopyButton text={urlIntel.artifact} />
           </div>
         </div>
 

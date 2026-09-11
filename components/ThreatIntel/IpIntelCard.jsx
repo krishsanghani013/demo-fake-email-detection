@@ -1,5 +1,6 @@
 import React from "react";
 import { Network, CheckCircle2, AlertTriangle, HelpCircle, XCircle } from "lucide-react";
+import CopyButton from "@/components/ui/CopyButton";
 
 /**
  * Returns badge styling for IP threat intelligence status.
@@ -52,13 +53,14 @@ export default function IpIntelCard({ ipIntel, artifact }) {
   const BadgeIcon = badge.icon;
 
   return (
-    <div className="rounded-lg border border-[#27272A] bg-[#141417] p-3.5 text-xs">
+    <div className="rounded-lg border border-[#1C2436] bg-[#111723] p-3.5 text-xs">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Network className="h-3.5 w-3.5 text-purple-400" />
-          <span className="font-mono text-xs font-bold text-[#F4F4F5]">
+          <span className="font-mono text-xs font-bold text-[#F8FAFC]">
             {ipIntel.artifact}
           </span>
+          <CopyButton text={ipIntel.artifact} />
         </div>
 
         <span

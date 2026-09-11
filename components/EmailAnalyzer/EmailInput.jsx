@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   ShieldAlert,
   AlertCircle,
@@ -9,15 +9,18 @@ import {
   UploadCloud,
   Edit3,
   CheckCircle2,
-  Radio,
   Zap,
+  Sparkles,
+  ArrowRight,
+  Shield,
+  FileCheck,
 } from "lucide-react";
 import SampleEmails from "./SampleEmails";
 import EmailFileUpload from "./EmailFileUpload";
 import EmailPreview from "./EmailPreview";
 import { calculateUnifiedRisk } from "@/lib/riskEngine";
 import { saveCaseToStorage } from "@/lib/caseStorage";
-import { useQuota, consumeQuota, resetQuotaManually } from "@/lib/quota";
+import { useQuota } from "@/lib/quota";
 
 /**
  * Visual loading stages shown while the forensic AI analysis is in progress.
@@ -47,12 +50,24 @@ export default function EmailInput({ onAnalysisComplete }) {
   const [emailText, setEmailText] = useState("");
   const [parsedEmailData, setParsedEmailData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [activeStageIdx, setActiveStageIdx] = useState(0);
   const [error, setError] = useState(null);
   const isSubmittingRef = useRef(false);
 
   const charCount = emailText.length;
   const isTooShort = emailText.trim().length > 0 && emailText.trim().length < 10;
   const isSubmitDisabled = isLoading || emailText.trim().length < 10;
+
+  // Simulate advancing stage progression while API request is in-flight
+  useEffect(() => {
+    let interval;
+    if (isLoading) {
+      interval = setInterval(() => {
+        setActiveStageIdx((prev) => (prev < LOADING_STAGES.length - 1 ? prev + 1 : prev));
+      }, 1200);
+    }
+    return () => clearInterval(interval);
+  }, [isLoading]);
 
   function handleSelectSample(sampleContent) {
     if (isLoading || isSubmittingRef.current) return;
@@ -78,7 +93,7 @@ export default function EmailInput({ onAnalysisComplete }) {
     if (e) e.preventDefault();
 
     if (emailText.trim().length === 0) {
-      setError("Paste an email or upload an .eml file above to begin analysis.");
+      setError("Paste an email or upload an .eml file to begin analysis.");
       return;
     }
 
@@ -92,6 +107,7 @@ export default function EmailInput({ onAnalysisComplete }) {
     }
 
     isSubmittingRef.current = true;
+    setActiveStageIdx(0);
     setIsLoading(true);
     setError(null);
 
@@ -120,7 +136,7 @@ export default function EmailInput({ onAnalysisComplete }) {
           errorMsg.includes("429") ||
           errorMsg.includes("quota")
         ) {
-          throw new Error("AI analysis is temporarily unavailable. Please try again later.");
+          throw new Error("AI analysis service is temporarily unavailable. Please try again in a few moments.");
         }
         throw new Error(errorMsg || "Unable to analyze this email. Please try again.");
       }
@@ -141,11 +157,12 @@ export default function EmailInput({ onAnalysisComplete }) {
             }
           }
         } catch (parseErr) {
-          console.warn("Pasted email structure parse fallback:", parseErr?.message || parseErr);
+          console.warn("Client-side EML parsing note:", parseErr);
         }
       }
 
-      if (typeof onAnalysisComplete === "function") {
+      // Calculate unified risk combining deterministic heuristics + AI score
+      if (result.data) {
         const unifiedRisk = calculateUnifiedRisk({
           aiResult: result.data,
           authentication: currentParsed?.authentication || null,
@@ -181,7 +198,7 @@ export default function EmailInput({ onAnalysisComplete }) {
           attachments: currentParsed?.attachments || [],
         };
 
-        // Automatically persist investigation into Prisma & Supabase (with local fallback)
+        // Automatically persist investigation into Prisma & Supabase
         try {
           await saveCaseToStorage(combinedResult);
         } catch (saveErr) {
@@ -193,7 +210,7 @@ export default function EmailInput({ onAnalysisComplete }) {
     } catch (err) {
       console.error("Email analysis error:", err?.message || err);
       setError(
-        err?.message || "Unable to analyze this email. Please try again."
+        err?.message || "Unable to analyze this email. Please verify connection and try again."
       );
     } finally {
       isSubmittingRef.current = false;
@@ -208,27 +225,27 @@ export default function EmailInput({ onAnalysisComplete }) {
   }
 
   return (
-    <div className="space-y-5 rounded-xl border border-[#27272A] bg-[#111113] p-6 shadow-2xs">
+    <div className="space-y-6 rounded-xl border border-[#1C2436] bg-[#111723] p-6 shadow-2xs">
       {/* Input Method Navigation Tabs */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#27272A] pb-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-[#1C2436] pb-4">
         <div>
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-[#F4F4F5]">
-            New Investigation Ingress
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-[#F8FAFC]">
+            Email Ingress & Source Telemetry
           </h2>
-          <p className="text-xs text-[#71717A]">
-            Input raw RFC 5322 .eml or paste plain-text email content
+          <p className="text-xs text-[#94A3B8]">
+            Input raw RFC 5322 .eml or paste email headers and body content
           </p>
         </div>
 
-        <div className="flex items-center gap-1.5 rounded-lg bg-[#18181B] p-1 border border-[#27272A]">
+        <div className="flex items-center gap-1.5 rounded-lg bg-[#161D2D] p-1 border border-[#253046]">
           <button
             type="button"
             onClick={() => setActiveTab("paste")}
             disabled={isLoading}
             className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
               activeTab === "paste"
-                ? "bg-[#27272A] text-[#F4F4F5] shadow-xs"
-                : "text-[#71717A] hover:text-[#F4F4F5]"
+                ? "bg-[#1D263B] text-[#F8FAFC] border border-[#384A6E] shadow-xs"
+                : "text-[#94A3B8] hover:text-[#F8FAFC]"
             }`}
           >
             <Edit3 className="h-3.5 w-3.5" />
@@ -241,8 +258,8 @@ export default function EmailInput({ onAnalysisComplete }) {
             disabled={isLoading}
             className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all ${
               activeTab === "upload"
-                ? "bg-[#27272A] text-[#F4F4F5] shadow-xs"
-                : "text-[#71717A] hover:text-[#F4F4F5]"
+                ? "bg-[#1D263B] text-[#F8FAFC] border border-[#384A6E] shadow-xs"
+                : "text-[#94A3B8] hover:text-[#F8FAFC]"
             }`}
           >
             <UploadCloud className="h-3.5 w-3.5" />
@@ -253,14 +270,14 @@ export default function EmailInput({ onAnalysisComplete }) {
 
       {/* Mode 1: Paste Email */}
       {activeTab === "paste" && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <SampleEmails onSelectSample={handleSelectSample} disabled={isLoading} />
 
-          <div className="border-t border-[#27272A]" />
+          <div className="border-t border-[#1C2436]" />
 
           <div className="relative">
-            <div className="flex items-center justify-between pb-1.5 text-[11px] text-[#71717A]">
-              <span>Raw Email Header & Body Content</span>
+            <div className="flex items-center justify-between pb-2 text-[11px] text-[#94A3B8]">
+              <span className="font-medium">Raw Email Header & Body Content (RFC 5322)</span>
               {emailText && (
                 <button
                   type="button"
@@ -283,8 +300,8 @@ export default function EmailInput({ onAnalysisComplete }) {
                 if (error) setError(null);
               }}
               disabled={isLoading}
-              placeholder="Paste the raw email content (headers, subject, sender, body, links, or invoice details)..."
-              className="w-full resize-y rounded-xl border border-[#27272A] bg-[#141417] p-4 font-mono text-xs leading-relaxed text-[#F4F4F5] placeholder-[#71717A] focus:border-indigo-500 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-60"
+              placeholder="Paste raw email content here (e.g. From, To, Subject, Received headers, body text, or suspicious links)..."
+              className="w-full resize-y rounded-xl border border-[#1C2436] bg-[#0D111A] p-4 font-mono text-xs leading-relaxed text-[#F8FAFC] placeholder-[#64748B] focus:border-blue-500 focus:outline-hidden disabled:cursor-not-allowed disabled:opacity-60 transition-colors"
             />
           </div>
         </div>
@@ -304,11 +321,11 @@ export default function EmailInput({ onAnalysisComplete }) {
       {/* Analysis Action Bar & Form Submit */}
       <form onSubmit={handleSubmit} className="space-y-4 pt-2">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-3 text-xs font-mono text-[#71717A]">
+          <div className="flex items-center gap-3 text-xs font-mono text-[#94A3B8]">
             <span>{charCount.toLocaleString()} bytes ready for inspection</span>
             {isTooShort && (
               <span className="text-amber-400">
-                (Min 10 chars required)
+                (Min 10 characters required)
               </span>
             )}
           </div>
@@ -316,7 +333,7 @@ export default function EmailInput({ onAnalysisComplete }) {
           <button
             type="submit"
             disabled={isSubmitDisabled}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-indigo-600 px-6 text-xs font-semibold text-white shadow-xs transition-all hover:bg-indigo-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-6 text-xs font-semibold text-white shadow-xs transition-all hover:bg-blue-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
           >
             {isLoading ? (
               <>
@@ -326,69 +343,68 @@ export default function EmailInput({ onAnalysisComplete }) {
             ) : (
               <>
                 <ShieldAlert className="h-4 w-4" />
-                <span>Execute Investigation</span>
+                <span>Analyze Email</span>
               </>
             )}
           </button>
         </div>
 
-        {/* Real-time Investigation Progress UI */}
+        {/* Real-time Investigation Progress UI with Staged Step Indicator */}
         {isLoading && (
-          <div className="rounded-xl border border-indigo-500/30 bg-indigo-500/5 p-4 space-y-3">
-            <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-indigo-300">
-              <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
-              <span>Analyzing Email Artifacts & Threat Signals</span>
+          <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 p-5 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 text-xs font-semibold uppercase tracking-wider text-blue-300">
+                <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
+                <span>Analyzing Email Artifacts & Threat Signals</span>
+              </div>
+              <span className="font-mono text-xs text-blue-400 font-semibold">
+                Stage {activeStageIdx + 1} of {LOADING_STAGES.length}
+              </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-              {LOADING_STAGES.map((stage, idx) => (
-                <div
-                  key={idx}
-                  className="flex items-center gap-2 rounded-lg bg-[#141417] p-2.5 text-xs text-[#A1A1AA] border border-[#27272A]"
-                >
-                  <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-indigo-500/20 text-[10px] font-mono font-bold text-indigo-400 border border-indigo-500/30">
-                    {idx + 1}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+              {LOADING_STAGES.map((stage, idx) => {
+                const isPast = idx < activeStageIdx;
+                const isCurrent = idx === activeStageIdx;
+
+                return (
+                  <div
+                    key={idx}
+                    className={`flex items-center gap-2.5 rounded-lg p-3 text-xs border transition-all ${
+                      isCurrent
+                        ? "bg-[#161D2D] text-[#F8FAFC] border-blue-500/50 shadow-[0_0_12px_rgba(59,130,246,0.15)]"
+                        : isPast
+                        ? "bg-[#111723] text-emerald-400 border-emerald-500/30"
+                        : "bg-[#0D111A] text-[#64748B] border-[#1C2436]"
+                    }`}
+                  >
+                    <div
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-mono font-bold border ${
+                        isCurrent
+                          ? "bg-blue-500/20 text-blue-400 border-blue-500/40 animate-pulse"
+                          : isPast
+                          ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/40"
+                          : "bg-[#161D2D] text-[#64748B] border-[#253046]"
+                      }`}
+                    >
+                      {isPast ? "✓" : idx + 1}
+                    </div>
+                    <span className="truncate">{stage}</span>
                   </div>
-                  <span className="truncate">{stage}</span>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
-        {/* Error State Banner */}
+        {/* User-friendly Error Alert */}
         {error && (
-          <div
-            role="alert"
-            className="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-300"
-          >
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-rose-400" />
-            <div className="flex-1">
-              <p className="font-semibold text-[#F4F4F5]">Analysis Alert</p>
-              <p className="mt-0.5 leading-relaxed text-rose-300">
-                {error}
-              </p>
-              {(quota.isExhausted || error.toLowerCase().includes("quota")) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    resetQuotaManually();
-                    setError(null);
-                  }}
-                  className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-indigo-500 transition-colors"
-                >
-                  <Zap className="h-3 w-3" />
-                  <span>Reset Quota Now (Test / Demo)</span>
-                </button>
-              )}
+          <div className="flex items-start gap-3 rounded-xl border border-rose-500/30 bg-rose-500/10 p-4 text-xs text-rose-300">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5 text-rose-400" />
+            <div className="space-y-1">
+              <p className="font-semibold text-rose-200">Analysis Ingress Notice</p>
+              <p className="text-[11px] leading-relaxed text-rose-300/90">{error}</p>
             </div>
-            <button
-              type="button"
-              onClick={() => setError(null)}
-              className="text-xs font-semibold text-rose-400 underline hover:text-rose-200"
-            >
-              Dismiss
-            </button>
           </div>
         )}
       </form>

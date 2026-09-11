@@ -6,10 +6,12 @@ import {
   addAnalystNote,
 } from "@/lib/caseRepository";
 import { isDatabaseConfigured } from "@/lib/prisma";
+import { requireAuthenticatedUser } from "@/lib/authenticatedUser";
 
 /**
  * GET /api/cases/[id]
- * Retrieves complete case details with email, artifacts, evidence, timeline, notes.
+ * Retrieves complete case details only if the case belongs to the authenticated Clerk user.
+ * Returns 404 without leaking metadata if the case does not exist or belongs to another user.
  */
 export async function GET(request, { params }) {
   try {
@@ -28,7 +30,13 @@ export async function GET(request, { params }) {
       );
     }
 
-    const caseData = await getCaseById(id);
+    const { user, unauthorizedResponse } = await requireAuthenticatedUser();
+    if (unauthorizedResponse) {
+      return unauthorizedResponse;
+    }
+
+    // Scoped strictly to the authenticated user's ID
+    const caseData = await getCaseById(id, user.id);
 
     if (!caseData) {
       return NextResponse.json(
@@ -52,6 +60,7 @@ export async function GET(request, { params }) {
 
 /**
  * PATCH /api/cases/[id]
+ * Updates case status or adds analyst notes only if the case belongs to the authenticated user.
  * Body: { status?: string, note?: string }
  */
 export async function PATCH(request, { params }) {
@@ -64,18 +73,31 @@ export async function PATCH(request, { params }) {
       );
     }
 
+    const { user, unauthorizedResponse } = await requireAuthenticatedUser();
+    if (unauthorizedResponse) {
+      return unauthorizedResponse;
+    }
+
+    // Verify case ownership before modifying
+    const existingCase = await getCaseById(id, user.id);
+    if (!existingCase) {
+      return NextResponse.json(
+        { success: false, error: "Case not found." },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
-    let updated = null;
 
     if (body.status) {
-      updated = await updateCaseStatus(id, body.status);
+      await updateCaseStatus(id, body.status, user.id);
     }
 
     if (body.note) {
-      await addAnalystNote(id, body.note);
+      await addAnalystNote(id, body.note, user.id);
     }
 
-    const fullCase = await getCaseById(id);
+    const fullCase = await getCaseById(id, user.id);
 
     return NextResponse.json({
       success: true,
@@ -92,6 +114,7 @@ export async function PATCH(request, { params }) {
 
 /**
  * DELETE /api/cases/[id]
+ * Deletes a case only if it belongs to the authenticated user.
  */
 export async function DELETE(request, { params }) {
   try {
@@ -103,11 +126,23 @@ export async function DELETE(request, { params }) {
       );
     }
 
-    const deleted = await deleteCase(id);
+    const { user, unauthorizedResponse } = await requireAuthenticatedUser();
+    if (unauthorizedResponse) {
+      return unauthorizedResponse;
+    }
+
+    const deleted = await deleteCase(id, user.id);
+
+    if (!deleted) {
+      return NextResponse.json(
+        { success: false, error: "Case not found." },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({
-      success: deleted,
-      message: deleted ? "Case deleted successfully." : "Case not found.",
+      success: true,
+      message: "Case deleted successfully.",
     });
   } catch (error) {
     console.error(`DELETE /api/cases/[id] error:`, error);
@@ -117,3 +152,4 @@ export async function DELETE(request, { params }) {
     );
   }
 }
+

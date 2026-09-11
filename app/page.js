@@ -12,7 +12,6 @@ import AnalysisResult from "@/components/Analysis/AnalysisResult";
 import ForensicReport from "@/components/Reports/ForensicReport";
 import {
   getStoredCases,
-  seedDefaultCasesIfEmpty,
   syncCasesWithDatabase,
   fetchCaseDetails,
 } from "@/lib/caseStorage";
@@ -29,18 +28,19 @@ export default function Home() {
   const [storedCases, setStoredCases] = useState([]);
   const [mounted, setMounted] = useState(false);
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [globalSearch, setGlobalSearch] = useState("");
 
   // Load client-side storage safely on mount to prevent SSR hydration mismatches,
   // then seamlessly sync with server/Prisma database.
   useEffect(() => {
     const timer = setTimeout(() => {
       setMounted(true);
-      seedDefaultCasesIfEmpty();
+      // Read initial local cases (if any exist)
       setStoredCases(getStoredCases());
 
-      // Sync with Prisma / Supabase database in background
+      // Sync with Prisma / Supabase database (authenticated user cases)
       syncCasesWithDatabase().then((cases) => {
-        if (cases && cases.length > 0) {
+        if (cases) {
           setStoredCases(cases);
         }
       });
@@ -52,11 +52,10 @@ export default function Home() {
   const handleAnalysisComplete = (result) => {
     setActiveCaseResult(result);
     setActiveView("case-detail");
-    setStoredCases(getStoredCases());
 
-    // Re-sync with database
+    // Immediately re-sync with database to include newly created case
     syncCasesWithDatabase().then((cases) => {
-      if (cases && cases.length > 0) {
+      if (cases) {
         setStoredCases(cases);
       }
     });
@@ -75,15 +74,23 @@ export default function Home() {
     }
   };
 
-  // Calculate live summary statistics
+  // Calculate live summary statistics strictly from real user data (no fake fallbacks)
   const summaryStats = {
-    malicious: storedCases.filter((c) => c.classification === "fraudulent").length || 17,
-    review: storedCases.filter((c) => c.classification === "suspicious").length || 36,
-    benign: storedCases.filter((c) => c.classification === "legitimate").length || 11,
+    malicious: storedCases.filter((c) => c.classification === "fraudulent").length,
+    review: storedCases.filter((c) => c.classification === "suspicious").length,
+    benign: storedCases.filter((c) => c.classification === "legitimate").length,
+  };
+
+  // Handle global search input
+  const handleSearchChange = (query) => {
+    setGlobalSearch(query);
+    if (query.trim().length > 0 && activeView !== "investigations") {
+      setActiveView("investigations");
+    }
   };
 
   return (
-    <div className="flex min-h-screen bg-[#09090B] text-[#F4F4F5]">
+    <div className="flex min-h-screen bg-[#0A0D14] text-[#F8FAFC]">
       {/* 1. Left Persistent Sidebar / Mobile Drawer */}
       <Sidebar
         activeTab={activeView === "case-detail" ? "investigations" : activeView}
@@ -102,6 +109,8 @@ export default function Home() {
           onOpenMobile={() => setIsMobileSidebarOpen(true)}
           onNewInvestigation={() => setActiveView("new")}
           summaryStats={summaryStats}
+          searchQuery={globalSearch}
+          onSearchChange={handleSearchChange}
         />
 
         {/* Dynamic Page Views */}
@@ -120,11 +129,11 @@ export default function Home() {
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h1 className="text-xl font-bold tracking-tight text-[#F4F4F5]">
+                  <h1 className="text-xl font-bold tracking-tight text-[#F8FAFC]">
                     New Forensic Investigation
                   </h1>
-                  <p className="text-xs text-[#71717A]">
-                    Upload RFC 5322 .eml or paste email content for multi-vector threat analysis
+                  <p className="text-xs text-[#94A3B8]">
+                    Upload RFC 5322 .eml or paste email headers and body for multi-vector threat analysis
                   </p>
                 </div>
               </div>
@@ -149,19 +158,19 @@ export default function Home() {
           {activeView === "reports" && (
             <div className="space-y-6">
               <div>
-                <h1 className="text-xl font-bold tracking-tight text-[#F4F4F5]">
+                <h1 className="text-xl font-bold tracking-tight text-[#F8FAFC]">
                   Forensic Briefing Documents
                 </h1>
-                <p className="text-xs text-[#71717A]">
-                  Structured compliance reports and printable forensic dossiers
+                <p className="text-xs text-[#94A3B8]">
+                  Structured compliance reports, printable dossiers, and vector exports
                 </p>
               </div>
 
               {activeCaseResult ? (
                 <ForensicReport result={activeCaseResult} />
               ) : (
-                <div className="rounded-xl border border-[#27272A] bg-[#111113] p-12 text-center text-xs text-[#71717A]">
-                  Select an investigation from the <strong>Dashboard</strong> or <strong>Investigations</strong> list to view its forensic report briefing.
+                <div className="rounded-xl border border-[#1C2436] bg-[#111723] p-12 text-center text-xs text-[#94A3B8]">
+                  Select an investigation from the <strong>Dashboard</strong> or <strong>Investigations</strong> list to inspect its forensic report briefing.
                 </div>
               )}
             </div>

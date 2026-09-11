@@ -1,5 +1,6 @@
 import React from "react";
 import { Globe, AlertTriangle } from "lucide-react";
+import CopyButton from "@/components/ui/CopyButton";
 
 /**
  * DomainIntelCard Component (Dark SOC Theme)
@@ -10,13 +11,14 @@ export default function DomainIntelCard({ domainIntel }) {
   const isSuspicious = domainIntel.status === "suspicious" || domainIntel.status === "malicious";
 
   return (
-    <div className="flex flex-col justify-between rounded-lg border border-[#27272A] bg-[#141417] p-3 text-xs">
+    <div className="flex flex-col justify-between rounded-lg border border-[#1C2436] bg-[#111723] p-3 text-xs">
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           <Globe className="h-3.5 w-3.5 shrink-0 text-emerald-400" />
-          <span className="font-mono font-semibold text-[#F4F4F5] truncate">
+          <span className="font-mono font-semibold text-[#F8FAFC] truncate">
             {domainIntel.artifact}
           </span>
+          <CopyButton text={domainIntel.artifact} />
         </div>
 
         <span
