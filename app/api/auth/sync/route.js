@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import {
   syncCurrentAuthenticatedUser,
   getDatabaseUserByClerkId,
-} from "@/lib/userService";
+} from "../../../../lib/userService.js";
 
 /**
  * GET /api/auth/sync

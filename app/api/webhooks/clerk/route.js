@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { Webhook } from "svix";
-import { headers } from "next/headers";
-import { syncClerkUser, deleteClerkUser } from "@/lib/userService";
+import { syncClerkUser, deleteClerkUser } from "../../../../lib/userService.js";
 
 /**
  * Clerk Webhook Handler (Route Handler)
@@ -31,11 +30,10 @@ export async function POST(req) {
     );
   }
 
-  // Get Svix headers for signature verification
-  const headerPayload = await headers();
-  const svix_id = headerPayload.get("svix-id");
-  const svix_timestamp = headerPayload.get("svix-timestamp");
-  const svix_signature = headerPayload.get("svix-signature");
+  // Get Svix headers for signature verification directly from request headers
+  const svix_id = req.headers.get("svix-id");
+  const svix_timestamp = req.headers.get("svix-timestamp");
+  const svix_signature = req.headers.get("svix-signature");
 
   if (!svix_id || !svix_timestamp || !svix_signature) {
     return NextResponse.json(
@@ -51,10 +49,9 @@ export async function POST(req) {
   const payload = await req.text();
 
   const wh = new Webhook(WEBHOOK_SECRET);
-  let evt;
 
   try {
-    evt = wh.verify(payload, {
+    wh.verify(payload, {
       "svix-id": svix_id,
       "svix-timestamp": svix_timestamp,
       "svix-signature": svix_signature,
@@ -66,6 +63,17 @@ export async function POST(req) {
         success: false,
         error: "Invalid webhook signature.",
       },
+      { status: 400 }
+    );
+  }
+
+  let evt;
+  try {
+    evt = JSON.parse(payload);
+  } catch (parseErr) {
+    console.error("[Clerk Webhook] Failed to parse JSON payload:", parseErr.message);
+    return NextResponse.json(
+      { success: false, error: "Invalid JSON payload." },
       { status: 400 }
     );
   }
